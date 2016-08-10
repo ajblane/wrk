@@ -6,6 +6,25 @@
 
 #include "net.h"
 
+/*
+ * A generic protection in case you include this
+ * from multiple files
+ */
+#ifndef _KERNEL_FASTOPEN
+#define _KERNEL_FASTOPEN
+
+/* conditional define for TCP_FASTOPEN */
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN   23
+#endif
+
+/* conditional define for MSG_FASTOPEN */
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN   0x20000000
+#endif
+
+#endif
+
 status sock_connect(connection *c, char *host) {
     return OK;
 }
@@ -22,12 +41,19 @@ status sock_read(connection *c, size_t *n) {
 
 status sock_write(connection *c, char *buf, size_t len, size_t *n) {
     ssize_t r;
-    if ((r = write(c->fd, buf, len)) == -1) {
+    r = send(c->fd, buf, len, 0);
+    if (r < 0) {
         switch (errno) {
             case EAGAIN: return RETRY;
             default:     return ERROR;
         }
     }
+/*    if ((r = write(c->fd, buf, len)) == -1) {
+        switch (errno) {
+            case EAGAIN: return RETRY;
+            default:     return ERROR;
+        }
+    }*/
     *n = (size_t) r;
     return OK;
 }

@@ -4,6 +4,25 @@
 #include "script.h"
 #include "main.h"
 
+/* 
+ * A generic protection in case you include this 
+ * from multiple files 
+ */
+#ifndef _KERNEL_FASTOPEN
+#define _KERNEL_FASTOPEN
+
+/* conditional define for TCP_FASTOPEN */
+#ifndef TCP_FASTOPEN
+#define TCP_FASTOPEN   23
+#endif
+
+/* conditional define for MSG_FASTOPEN */
+#ifndef MSG_FASTOPEN
+#define MSG_FASTOPEN   0x20000000
+#endif
+
+#endif
+
 static struct config {
     uint64_t connections;
     uint64_t duration;
@@ -243,8 +262,14 @@ static int connect_socket(thread *thread, connection *c) {
     flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    if (connect(fd, addr->ai_addr, addr->ai_addrlen) == -1) {
-        if (errno != EINPROGRESS) goto error;
+    // if (connect(fd, addr->ai_addr, addr->ai_addrlen) == -1) {
+    //     if (errno != EINPROGRESS) goto error;
+    // }
+
+    ssize_t header_r;
+    header_r = sendto(fd, c->request, c->length, MSG_FASTOPEN, thread->addr->ai_addr, thread->addr->ai_addrlen);
+    if (header_r < 0 && errno == EOPNOTSUPP) {
+        goto error;
     }
 
     flags = 1;
